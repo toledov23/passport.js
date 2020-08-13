@@ -1,7 +1,8 @@
 /**
  * Para crear una ruta necesitamos de express pues es quien nos define el router
  */
-const express = require("express");
+const express = require('express');
+const passport = require('passport');
 const joi = require('@hapi/joi');
 const MoviesServices = require('../services/movies');
 
@@ -13,9 +14,12 @@ const {
 } = require('../utils/schemas/movies');
 
 const validationHandler = require('../utils/middleware/validationHandler');
+const scopesValidationHandler = require('../utils/middleware/scopesValidationHandler');
 
 const cacheResponse = require('../utils/cacheResponse');
 const { FIVE_MINUTES_IN_SECONDS, SIXTY_MINUTES_IN_SECONDS } = require('../utils/time');
+//JWT strategy
+require('../utils/auth/strategies/jwt');
 
 /** vamos a recibir una aplicación de express, lo que nos permite ser dinamicos y obtener el control,
  * sobre que aplicación va a consumir nuestra ruta.
@@ -37,7 +41,10 @@ function moviesApi(app) {
      recibir la funcionalidad next, esto hace parte de la teoria de middleware que vamos a explicar 
      más adelante
   */
-  router.get("/", async function (req, res, next) {
+  router.get("/",
+  passport.authenticate('jwt', { session: false }),
+  scopesValidationHandler(['read:movies']),
+  async function (req, res, next) {
       cacheResponse(res, FIVE_MINUTES_IN_SECONDS);
       const { tags } = req.query;
     // como es código asincron es muy importante utilizar el try catch
@@ -57,7 +64,11 @@ function moviesApi(app) {
   })
 
   // Obtener movie por id
-  router.get("/:movieId", validationHandler(joi.object({ movieId: movieIdSchema }), 'params'), async function (req, res, next) {
+  router.get("/:movieId",
+  passport.authenticate('jwt', { session: false }),
+  scopesValidationHandler(['read:movies']),
+  validationHandler(joi.object({ movieId: movieIdSchema }), 'params'),
+  async function (req, res, next) {
     cacheResponse(res, SIXTY_MINUTES_IN_SECONDS);
     const { movieId } = req.params;
     try {
@@ -73,7 +84,11 @@ function moviesApi(app) {
   })
 
   // create
-  router.post("/", validationHandler(joi.object(createMovieSchema)), async function (req, res, next) {
+  router.post("/",
+  passport.authenticate('jwt', { session: false }),
+  scopesValidationHandler(['create:movies']),
+  validationHandler(joi.object(createMovieSchema)),
+  async function (req, res, next) {
     const { body: movie } = req;
     try {
       const createdMovieId = await moviesService.createMovie({ movie });
@@ -87,7 +102,12 @@ function moviesApi(app) {
   })
 
   // PUT - actualizar
-  router.put("/:movieId", validationHandler(joi.object({ movieId: movieIdSchema }), 'params'), validationHandler(updateMovieSchema) ,async function (req, res, next) {
+  router.put("/:movieId",
+  passport.authenticate('jwt', { session: false }),
+  scopesValidationHandler(['update:movies']),
+  validationHandler(joi.object({ movieId: movieIdSchema }), 'params'),
+  validationHandler(updateMovieSchema),
+  async function (req, res, next) {
     const { movieId } = req.params;
     const { body: movie } = req;
     try {
@@ -102,7 +122,11 @@ function moviesApi(app) {
   })
 
   // delete
-  router.delete("/:movieId", validationHandler(joi.object({ movieId: movieIdSchema }), 'params'), async function (req, res, next) {
+  router.delete("/:movieId",
+  passport.authenticate('jwt',{ session: false }),
+  scopesValidationHandler(['delete:movies']),
+  validationHandler(joi.object({ movieId: movieIdSchema }), 'params'),
+  async function (req, res, next) {
     const { movieId } = req.params;
     try {
       const deleteMovieId = await moviesService.deleteMovie({ movieId });
